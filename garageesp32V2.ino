@@ -4,15 +4,38 @@
 
 
 // GPIO pin we're using
+const int pinmac = 13;   //start prog. store trusted macs
 const int pin = 23;
 const int pin2 = 22;
 const char* ssid     = "ESP32";
 const char* password = "00000000";
+
 bool    spiffsActive = false;
+#define MAXCLIENTS 10000
+#define PRGMACTIMEOUT 10000
 #define TESTFILE "/macs.txt"
 WebServer server(80);
 // Variable to store the HTTP request
 String header;
+static boolean prgMac = false;
+static uint32_t lastMillis = 0;
+
+typedef struct
+{
+    String mac = "";
+    String ip;
+    boolean trust;
+    boolean waitingIP = true;
+    
+} ClientType;
+
+ClientType gClient[MAXCLIENTS];
+
+void IRAM_ATTR isr() {
+  prgMac = true;
+  lastMillis = millis();
+   Serial.println("prgMac!");
+}
 
 void setup() {
  Serial.begin(115200);
@@ -24,13 +47,13 @@ void setup() {
  digitalWrite(pin2, LOW);
 
  WiFi.mode(WIFI_AP);
-  while(!WiFi.softAP(ssid, password))
+ while(!WiFi.softAP(ssid, password))
   {
    Serial.println(".");
     delay(100);
   }
   
-  Serial.print("Iniciado AP ");
+  Serial.print("AP Started");
   Serial.println(ssid);
   Serial.print("IP address:\t");
   Serial.println(WiFi.softAPIP());
@@ -52,6 +75,9 @@ void setup() {
   server.on("/led1on", handle_led1on);
   server.on("/led2on", handle_led2on);
   server.onNotFound(handle_NotFound);
+
+  pinMode(pinmac, INPUT_PULLUP);
+  attachInterrupt(pinmac, isr, FALLING);
   
   server.begin();
   Serial.println("Server started (80)");
@@ -59,8 +85,12 @@ void setup() {
 }
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  Serial.println("Station connected, adding MAC:");
-  addMac(info.sta_connected.mac);
+  
+  Serial.println("Station connected.");
+  if ( prgMac ) {
+    Serial.println(" -> adding MAC:");
+    addMac(info.sta_connected.mac);
+  }
 }
 
 void WiFiStationDisConnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -126,12 +156,21 @@ boolean macRegistered(const unsigned char* mac){
   return registered; 
 }
 
+
 void loop(){
   server.handleClient();
+  //Cancel prgMac after 1 Minute
+  
+  if (prgMac && (millis() - lastMillis > PRGMACTIMEOUT )) {
+     prgMac = false;
+     Serial.println("prgMac cancelled!");
+  }
 }
 
 void handle_OnConnect() {
-  Serial.println("OnConnect");
+  Serial.print("OnConnect IP ");
+  Serial.println(server.client().remoteIP().toString());
+  
   server.send(200, "text/html", SendHTML()); 
 }
 
