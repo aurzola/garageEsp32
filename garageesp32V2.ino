@@ -25,17 +25,6 @@ WebServer server(80);
 String header;
 static boolean prgMac = false;
 static uint32_t lastMillis = 0;
-boolean waitingDHCP=false;
-
-typedef struct
-{
-    String mac = "";
-    String ip;
-    boolean trust;
-    
-} ClientType;
-
-ClientType gClient[MAXCLIENTS];
 
 void IRAM_ATTR isr() {
   prgMac = true;
@@ -62,6 +51,7 @@ void blinkWarn(){
     digitalWrite(PINRED, LOW);
     delay(100);
   }
+  digitalWrite(PINRED, HIGH);
 }
 
 
@@ -121,7 +111,7 @@ void setup() {
 
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-   waitingDHCP=true;  
+   
   Serial.println("Station connected.");
   if ( prgMac ) {
     Serial.println(" -> Storing MAC:");
@@ -133,37 +123,12 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
     Serial.println(" Client not registered-> disconnected!");
     blinkWarn();
   }
-  //Add to list waiting for an IP
-  //Serial.println(" adding mac to List!");
-  //Serial.println(macToString(info.sta_connected.mac) );
-  for(int i=0; i<MAXCLIENTS; i++){
-    if ( gClient[i].mac == "" ){
-        Serial.println("Client waiting for IP and verification!" );
-        gClient[i].mac = macToString(info.sta_connected.mac);
-        gClient[i].ip = "";
-        gClient[i].trust = false;
-        break;
-    }
-  }
+  
 }
 
 void WiFiStationDisConnected(WiFiEvent_t event, WiFiEventInfo_t info){
- 
-  String mac2del = macToString(info.sta_connected.mac);
-  //Serial.println("Station disconnected, deleting mac from List!");
-  //Serial.println( mac2del );
-  //Delete from verification list
-  for(int i=0; i<MAXCLIENTS; i++){
-     Serial.print( gClient[i].mac );
-     Serial.println("?");
-    if ( gClient[i].mac == mac2del ){
-        gClient[i].mac = "";
-        gClient[i].ip = "";
-        gClient[i].trust = false;
-        Serial.println("Station disconnected, deleted MAC from List!");
-        break;
-    }
-  }
+ Serial.println("Station disconnected.");
+  
 }
 
 String macToString(const unsigned char* mac) {
@@ -233,35 +198,8 @@ void loop(){
      digitalWrite(PINBLUE, HIGH);
      Serial.println("prgMac cancelled!");
   }
-  if ( waitingDHCP )  { //any client waiting?
-     for(int i=0; i<MAXCLIENTS; i++){
-        if ( gClient[i].ip == "" ){
-        }
-     }
-  }
 }
 
-/*
-boolean deviceIP(String mac_device, String &cb) {
-  struct station_info *station_list = wifi_softap_get_station_info();
-
-  while (station_list != NULL) {
-    char station_mac[18] = {0}; sprintf(station_mac, "%02X:%02X:%02X:%02X:%02X:%02X", MAC2STR(station_list->bssid));
-    String station_ip = IPAddress((&station_list->ip)->addr).toString();
-    String staMac = mac2String(station_list->bssid);
-    Serial.println("prgMac cancelled!");
-    if ( mac_device == staMac) {
-      cb = station_ip;
-      return true;
-    } 
-
-    station_list = STAILQ_NEXT(station_list, next);
-  }
-
-  wifi_softap_free_station_info();
-  cb = "DHCP not ready or bad MAC address";
-  return false;
-}*/
 
 void handle_OnConnect() {
   Serial.print("OnConnect IP ");
