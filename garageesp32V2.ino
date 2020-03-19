@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include "SPIFFS.h"
 #include <WebServer.h>
 
@@ -8,8 +9,9 @@ const int pinmac = 13;   //start prog. store trusted macs
 const int pin = 23;
 const int pin2 = 22;
 #define PIN5V 5
-#define PINGREEN 5
+#define PINGREEN 19
 #define PINBLUE 21
+#define PINRED 18
 
 const char* ssid     = "ESP32";
 const char* password = "00000000";
@@ -23,6 +25,7 @@ WebServer server(80);
 String header;
 static boolean prgMac = false;
 static uint32_t lastMillis = 0;
+boolean waitingDHCP=false;
 
 typedef struct
 {
@@ -41,7 +44,7 @@ void IRAM_ATTR isr() {
   Serial.println("prgMac!");
 }
 
-void blinkBlue(){
+void blinkOk(){
  // Serial.println("blink blue");
   for(int i=0;i<5;i++){
     digitalWrite(PINBLUE, HIGH);
@@ -50,6 +53,17 @@ void blinkBlue(){
     delay(100);
   }
 }
+
+void blinkWarn(){
+ 
+  for(int i=0;i<5;i++){
+    digitalWrite(PINRED, HIGH);
+    delay(100);
+    digitalWrite(PINRED, LOW);
+    delay(100);
+  }
+}
+
 
 void setup() {
  Serial.begin(115200);
@@ -63,6 +77,10 @@ void setup() {
  digitalWrite(PIN5V, HIGH);
  pinMode(PINBLUE, OUTPUT);
  digitalWrite(PINBLUE, HIGH);
+ pinMode(PINRED, OUTPUT);
+ digitalWrite(PINRED, HIGH);
+ pinMode(PINGREEN, OUTPUT);
+ digitalWrite(PINGREEN, HIGH);
  WiFi.mode(WIFI_AP);
  while(!WiFi.softAP(ssid, password))
   {
@@ -103,19 +121,22 @@ void setup() {
 
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  
+   waitingDHCP=true;  
   Serial.println("Station connected.");
   if ( prgMac ) {
     Serial.println(" -> Storing MAC:");
-    
     addMac(info.sta_connected.mac);
-    blinkBlue();
+    blinkOk();
+  }
+  if ( !macRegistered(info.sta_connected.mac) )  {
+    esp_wifi_deauth_sta(info.sta_connected.aid);
+    Serial.println(" Client not registered-> disconnected!");
+    blinkWarn();
   }
   //Add to list waiting for an IP
   //Serial.println(" adding mac to List!");
   //Serial.println(macToString(info.sta_connected.mac) );
   for(int i=0; i<MAXCLIENTS; i++){
-    
     if ( gClient[i].mac == "" ){
         Serial.println("Client waiting for IP and verification!" );
         gClient[i].mac = macToString(info.sta_connected.mac);
@@ -207,13 +228,40 @@ boolean macRegistered(const unsigned char* mac){
 void loop(){
   server.handleClient();
   //Cancel prgMac after 1 Minute
-  
   if (prgMac && (millis() - lastMillis > PRGMACTIMEOUT )) {
      prgMac = false;
      digitalWrite(PINBLUE, HIGH);
      Serial.println("prgMac cancelled!");
   }
+  if ( waitingDHCP )  { //any client waiting?
+     for(int i=0; i<MAXCLIENTS; i++){
+        if ( gClient[i].ip == "" ){
+        }
+     }
+  }
 }
+
+/*
+boolean deviceIP(String mac_device, String &cb) {
+  struct station_info *station_list = wifi_softap_get_station_info();
+
+  while (station_list != NULL) {
+    char station_mac[18] = {0}; sprintf(station_mac, "%02X:%02X:%02X:%02X:%02X:%02X", MAC2STR(station_list->bssid));
+    String station_ip = IPAddress((&station_list->ip)->addr).toString();
+    String staMac = mac2String(station_list->bssid);
+    Serial.println("prgMac cancelled!");
+    if ( mac_device == staMac) {
+      cb = station_ip;
+      return true;
+    } 
+
+    station_list = STAILQ_NEXT(station_list, next);
+  }
+
+  wifi_softap_free_station_info();
+  cb = "DHCP not ready or bad MAC address";
+  return false;
+}*/
 
 void handle_OnConnect() {
   Serial.print("OnConnect IP ");
