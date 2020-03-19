@@ -7,11 +7,15 @@
 const int pinmac = 13;   //start prog. store trusted macs
 const int pin = 23;
 const int pin2 = 22;
+#define PIN5V 5
+#define PINGREEN 5
+#define PINBLUE 21
+
 const char* ssid     = "ESP32";
 const char* password = "00000000";
 
 bool    spiffsActive = false;
-#define MAXCLIENTS 10000
+#define MAXCLIENTS 6
 #define PRGMACTIMEOUT 10000
 #define TESTFILE "/macs.txt"
 WebServer server(80);
@@ -25,7 +29,6 @@ typedef struct
     String mac = "";
     String ip;
     boolean trust;
-    boolean waitingIP = true;
     
 } ClientType;
 
@@ -34,7 +37,18 @@ ClientType gClient[MAXCLIENTS];
 void IRAM_ATTR isr() {
   prgMac = true;
   lastMillis = millis();
-   Serial.println("prgMac!");
+  digitalWrite(PINBLUE, LOW); //Led ON! 
+  Serial.println("prgMac!");
+}
+
+void blinkBlue(){
+ // Serial.println("blink blue");
+  for(int i=0;i<5;i++){
+    digitalWrite(PINBLUE, HIGH);
+    delay(100);
+    digitalWrite(PINBLUE, LOW);
+    delay(100);
+  }
 }
 
 void setup() {
@@ -45,7 +59,10 @@ void setup() {
  digitalWrite(pin, LOW);
  pinMode(pin2, OUTPUT);
  digitalWrite(pin2, LOW);
-
+ pinMode(PIN5V, OUTPUT);
+ digitalWrite(PIN5V, HIGH);
+ pinMode(PINBLUE, OUTPUT);
+ digitalWrite(PINBLUE, HIGH);
  WiFi.mode(WIFI_AP);
  while(!WiFi.softAP(ssid, password))
   {
@@ -84,17 +101,48 @@ void setup() {
 
 }
 
+
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
   
   Serial.println("Station connected.");
   if ( prgMac ) {
-    Serial.println(" -> adding MAC:");
+    Serial.println(" -> Storing MAC:");
+    
     addMac(info.sta_connected.mac);
+    blinkBlue();
+  }
+  //Add to list waiting for an IP
+  //Serial.println(" adding mac to List!");
+  //Serial.println(macToString(info.sta_connected.mac) );
+  for(int i=0; i<MAXCLIENTS; i++){
+    
+    if ( gClient[i].mac == "" ){
+        Serial.println("Client waiting for IP and verification!" );
+        gClient[i].mac = macToString(info.sta_connected.mac);
+        gClient[i].ip = "";
+        gClient[i].trust = false;
+        break;
+    }
   }
 }
 
 void WiFiStationDisConnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  Serial.println("Station disconnected, deleting MAC:");
+ 
+  String mac2del = macToString(info.sta_connected.mac);
+  //Serial.println("Station disconnected, deleting mac from List!");
+  //Serial.println( mac2del );
+  //Delete from verification list
+  for(int i=0; i<MAXCLIENTS; i++){
+     Serial.print( gClient[i].mac );
+     Serial.println("?");
+    if ( gClient[i].mac == mac2del ){
+        gClient[i].mac = "";
+        gClient[i].ip = "";
+        gClient[i].trust = false;
+        Serial.println("Station disconnected, deleted MAC from List!");
+        break;
+    }
+  }
 }
 
 String macToString(const unsigned char* mac) {
@@ -149,7 +197,6 @@ boolean macRegistered(const unsigned char* mac){
       }
       if (registered ) 
         Serial.println("MAC Already Registered" );
-      
     }
     
    }
@@ -163,6 +210,7 @@ void loop(){
   
   if (prgMac && (millis() - lastMillis > PRGMACTIMEOUT )) {
      prgMac = false;
+     digitalWrite(PINBLUE, HIGH);
      Serial.println("prgMac cancelled!");
   }
 }
@@ -170,7 +218,6 @@ void loop(){
 void handle_OnConnect() {
   Serial.print("OnConnect IP ");
   Serial.println(server.client().remoteIP().toString());
-  
   server.send(200, "text/html", SendHTML()); 
 }
 
