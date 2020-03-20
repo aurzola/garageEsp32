@@ -1,13 +1,15 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
+//#include <esp_softap.h>
 #include "SPIFFS.h"
 #include <WebServer.h>
 
-
+#define APPHEADING "<h1>WiFi Abrete el Garage</h1>\n";
 // GPIO pin we're using
 const int pinmac = 13;   //start prog. store trusted macs
 const int pin = 23;
 const int pin2 = 22;
+//rgb led
 #define PIN5V 5
 #define PINGREEN 19
 #define PINBLUE 21
@@ -19,6 +21,7 @@ const char* password = "00000000";
 bool    spiffsActive = false;
 #define MAXCLIENTS 6
 #define PRGMACTIMEOUT 10000
+#define TEMP_PATH "/tmpmacs.txt"
 #define TESTFILE "/macs.txt"
 WebServer server(80);
 // Variable to store the HTTP request
@@ -97,8 +100,10 @@ void setup() {
   }
   // Start the server
   server.on("/", handle_OnConnect);
-  server.on("/led1on", handle_led1on);
-  server.on("/led2on", handle_led2on);
+  server.on("/gate1on", handle_gate1on);
+  server.on("/gate2on", handle_gate2on);
+  server.on("/listmacs", handle_OnListMacs);
+  server.on("/delmac", handle_OnDelMac);
   server.onNotFound(handle_NotFound);
 
   pinMode(pinmac, INPUT_PULLUP);
@@ -158,6 +163,61 @@ void addMac(const unsigned char* mac){
       }
 }
 
+boolean delMac(String sMac){
+  Serial.println("Mac a eliminar " + sMac); 
+  if (spiffsActive) {
+    if (SPIFFS.exists(TESTFILE)) {
+      File f = SPIFFS.open(TESTFILE, "r");
+      if (!f) {
+        Serial.printf("Unable To Open '%s' for reading", TESTFILE);
+        return false;
+      } 
+      else {
+         File temporary = SPIFFS.open(TEMP_PATH, "w+");
+         if (!temporary){
+          Serial.println("-- failed to open temporary file "); 
+          return false;
+         }
+         else {        
+            String s;
+            while (f.position()<f.size()){
+              s=f.readStringUntil('\n');
+              s.trim();
+              if ( sMac != s  ) {
+                Serial.println(s + " copied to temporary file "); 
+                temporary.println(s);
+              }
+            } 
+            f.close(); 
+            temporary.close();
+            if (SPIFFS.remove(TESTFILE)) {
+                Serial.println("Old file succesfully deleted");
+            }
+            else{
+                Serial.println("Couldn't delete file");
+                return false;
+            }
+            if (SPIFFS.rename(TEMP_PATH,TESTFILE)){
+                Serial.println("Succesfully renamed");
+            }
+            else{
+                Serial.println("Couldn't rename file");
+                return false;
+             } 
+             return true;
+          }
+      }
+    } 
+    else {
+      Serial.println(String(TESTFILE) + " does not exists!"); 
+      return false;
+    }
+  }
+  else {
+    Serial.println( " SPIFFS not active");
+    return false;
+  }
+}
 
 boolean macRegistered(const unsigned char* mac){
    String sMac = macToString(mac);
@@ -200,6 +260,24 @@ void loop(){
   }
 }
 
+boolean deviceIP(char* mac_device, String &cb) {
+  struct station_info *station_list = wifi_softap_get_station_info();
+  while (station_list != NULL) {
+    char station_mac[18] = {0}; sprintf(station_mac, "%02X:%02X:%02X:%02X:%02X:%02X", MAC2STR(station_list->bssid));
+    String station_ip = IPAddress((&station_list->ip)->addr).toString();
+
+    if (strcmp(mac_device,station_mac)==0) {
+      waitingDHCP=false;
+      cb = station_ip;
+      return true;
+    } 
+    station_list = STAILQ_NEXT(station_list, next);
+  }
+
+  wifi_softap_free_station_info();
+  cb = "DHCP not ready or bad MAC address";
+  return false;
+}
 
 void handle_OnConnect() {
   Serial.print("OnConnect IP ");
@@ -207,7 +285,7 @@ void handle_OnConnect() {
   server.send(200, "text/html", SendHTML()); 
 }
 
-void handle_led1on() {
+void handle_gate1on() {
   digitalWrite(pin, HIGH);
   delay(1000);
   // open transistor (button release)
@@ -217,7 +295,7 @@ void handle_led1on() {
 }
 
 
-void handle_led2on() {
+void handle_gate2on() {
   digitalWrite(pin2, HIGH);
   delay(1000);
   // open transistor (button release)
@@ -229,13 +307,13 @@ void handle_led2on() {
 
 
 void handle_NotFound(){
-  server.send(404, "text/plain", "Not found");
+  server.send(404, "text/plain", "<H1>Not found</h1>");
 }
 
 String SendHTML(){
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr +="<title>LED Control</title>\n";
+  ptr +="<title>Wifi Remote Control</title>\n";
   ptr +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
   ptr +="body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
   ptr +=".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
@@ -245,16 +323,78 @@ String SendHTML(){
   ptr +="</style>\n";
   ptr +="</head>\n";
   ptr +="<body>\n";
-  ptr +="<h1>ESP32 Web Server</h1>\n";
-  ptr +="<h3>Using Access Point(AP) Mode</h3>\n";
+  ptr +=APPHEADING;
+  ptr +="<h3>Usando mode de acceso AP</h3>\n";
   
+  {ptr +="<a class=\"button button-on\" href=\"/gate1on\">Principal</a>\n";}
+  {ptr +="<a class=\"button button-on\" href=\"/gate2on\">Interna</a>\n";}
   
-  {ptr +="<a class=\"button button-on\" href=\"/led1on\">Principal</a>\n";}
-  
-  
-  {ptr +="<a class=\"button button-on\" href=\"/led2on\">Interna</a>\n";}
-  
-  ptr +="</body>\n";
+  ptr +="@aurzolar</body>\n";
   ptr +="</html>\n";
   return ptr;
+}
+
+void handle_OnListMacs() {
+  Serial.print("OnConnect IP ");
+  Serial.println(server.client().remoteIP().toString());
+  server.send(200, "text/html", SendHTMLMacs()); 
+}
+
+String SendHTMLMacs(){
+  String ptr = "<!DOCTYPE html> <html>\n";
+  ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  ptr +="<title>LED Control</title>\n";
+  ptr +="<style>html { font-family: Helvetica; margin:0px auto; }\n";
+  ptr +="body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
+  ptr +="p {font-size: 14px;color: #888;margin-bottom: 10px;}\n";
+  ptr +="</style>\n";
+  ptr +="</head>\n";
+  ptr +="<body>\n";
+  ptr += APPHEADING;
+  ptr +="<h3>Trusted Macs</h3>\n<ul>";
+  if (spiffsActive) {
+    if (SPIFFS.exists(TESTFILE)) {
+      File f = SPIFFS.open(TESTFILE, "r");
+      if (!f) {
+        Serial.printf("Unable To Open '%s' for Reading\n",TESTFILE);
+      }
+      else {
+        String s;
+        while (f.position()<f.size())
+        {
+          s=f.readStringUntil('\n');
+          s.trim();
+          ptr += s + "<li><a href=/delmac?mac="+s+">Elimina</a></li>";
+        } 
+        f.close(); 
+      }
+    }
+    else 
+      ptr += String(TESTFILE) + " not exists ";
+  } 
+  else 
+    ptr +=" spiffs not Active";
+     
+  ptr +="</ul></br></body>\n";
+  ptr +="</html>\n";
+  return ptr;
+}
+
+void handle_OnDelMac() { 
+
+    String message = "";
+    String mac2del =  server.arg("mac");
+    if ( mac2del == ""){     //Parameter not found
+       message = "<h1>mac argument missing</h1>";
+    }
+    else{     //Parameter found
+      if ( delMac(mac2del) ) {
+        message = mac2del + " eliminada";
+      }
+      else{
+        message =  "No se pudo eliminar la mac";
+      }
+    }
+    message += "<br><br><a href=//listmacs>Regresar</a>";
+    server.send(200, "text/html", message);          //Returns the HTTP response
 }
