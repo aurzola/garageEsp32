@@ -219,10 +219,12 @@ boolean delMac(String sMac){
   }
 }
 
-boolean macRegistered(const unsigned char* mac){
-   String sMac = macToString(mac);
-   boolean registered=false;
-   if (spiffsActive) {
+/*
+ * Line number of mac in txt file
+ */
+int lineNumInMacs(String sMac){
+  int pos=-1;
+  if (spiffsActive) {
     if (SPIFFS.exists(TESTFILE)) {
       File f = SPIFFS.open(TESTFILE, "r");
       if (!f) {
@@ -232,21 +234,26 @@ boolean macRegistered(const unsigned char* mac){
         Serial.println();
       } else {
         String s;
+        int i=0;
         while (f.position()<f.size())
         {
           s=f.readStringUntil('\n');
           s.trim();
-          if ( sMac == s  ) 
-            registered=true;
+          if ( sMac == s  ) {
+            pos=i;
+          }
+          i++;
         } 
         f.close(); 
       }
-      if (registered ) 
-        Serial.println("MAC Already Registered" );
     }
-    
-   }
-  return registered; 
+  }
+  return pos;
+}
+
+boolean macRegistered(const unsigned char* mac){
+  String sMac = macToString(mac);
+  return lineNumInMacs(sMac) != -1; 
 }
 
 
@@ -260,23 +267,36 @@ void loop(){
   }
 }
 
-boolean deviceIP(char* mac_device, String &cb) {
-  struct station_info *station_list = wifi_softap_get_station_info();
-  while (station_list != NULL) {
-    char station_mac[18] = {0}; sprintf(station_mac, "%02X:%02X:%02X:%02X:%02X:%02X", MAC2STR(station_list->bssid));
-    String station_ip = IPAddress((&station_list->ip)->addr).toString();
-
-    if (strcmp(mac_device,station_mac)==0) {
-      waitingDHCP=false;
-      cb = station_ip;
-      return true;
-    } 
-    station_list = STAILQ_NEXT(station_list, next);
+/*
+ * First MAC in txt file is admin's
+ */
+boolean isAdmin(String sIp){ 
+  wifi_sta_list_t wifi_sta_list;
+  tcpip_adapter_sta_list_t adapter_sta_list;
+  boolean bAdmin=false;
+  memset(&wifi_sta_list, 0, sizeof(wifi_sta_list));
+  memset(&adapter_sta_list, 0, sizeof(adapter_sta_list));
+  Serial.println(" testing for admin IP "+ sIp);
+  esp_wifi_ap_get_sta_list(&wifi_sta_list);
+  tcpip_adapter_get_sta_list(&wifi_sta_list, &adapter_sta_list);
+ 
+  for (int i = 0; i < adapter_sta_list.num; i++) {
+    tcpip_adapter_sta_info_t station = adapter_sta_list.sta[i];
+    Serial.printf("station nr %d", i);
+    
+    String stationIp =  ip4addr_ntoa(&(station.ip));
+    Serial.println("conn station IP: "+ stationIp);  
+    
+    if ( sIp == stationIp ) {
+      String stationMac = macToString(station.mac);
+      Serial.println("conn MAC: " + stationMac );
+      if ( lineNumInMacs(stationMac) == 0 ){ //first one
+        bAdmin=true;
+        break;
+      }
+    }
   }
-
-  wifi_softap_free_station_info();
-  cb = "DHCP not ready or bad MAC address";
-  return false;
+  return bAdmin;
 }
 
 void handle_OnConnect() {
@@ -352,6 +372,7 @@ String SendHTMLMacs(){
   ptr +="<body>\n";
   ptr += APPHEADING;
   ptr +="<h3>Trusted Macs</h3>\n<ul>";
+  boolean bAdmin = isAdmin(server.client().remoteIP().toString());
   if (spiffsActive) {
     if (SPIFFS.exists(TESTFILE)) {
       File f = SPIFFS.open(TESTFILE, "r");
@@ -364,7 +385,10 @@ String SendHTMLMacs(){
         {
           s=f.readStringUntil('\n');
           s.trim();
-          ptr += s + "<li><a href=/delmac?mac="+s+">Elimina</a></li>";
+          if ( bAdmin ) 
+            ptr += "<li>"+s+" &nbsp;&nbsp; <a href=/delmac?mac="+s+">Elimina</a></li>";
+          else 
+            ptr += "<li>"+s+"</li>";
         } 
         f.close(); 
       }
@@ -395,6 +419,6 @@ void handle_OnDelMac() {
         message =  "No se pudo eliminar la mac";
       }
     }
-    message += "<br><br><a href=//listmacs>Regresar</a>";
+    message += "<br><br><a href=/listmacs>Regresar</a>";
     server.send(200, "text/html", message);          //Returns the HTTP response
 }
