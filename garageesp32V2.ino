@@ -123,11 +123,12 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
     addMac(info.sta_connected.mac);
     blinkOk();
   }
-  if ( !macRegistered(info.sta_connected.mac) )  {
-    esp_wifi_deauth_sta(info.sta_connected.aid);
-    Serial.println(" Client not registered-> disconnected!");
-    blinkWarn();
-  }
+  
+  // if ( !macRegistered(info.sta_connected.mac) )  {
+  //   esp_wifi_deauth_sta(info.sta_connected.aid);
+  //   Serial.println(" Client not registered-> disconnected!");
+  //   blinkWarn();
+  // }
   
 }
 
