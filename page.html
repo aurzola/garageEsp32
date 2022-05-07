@@ -6,14 +6,14 @@
     <title>Wifi Remote Control</title>
     <style>
       body {
+        overflow-y: hidden;
+        min-height: 100vh;
         font-family: Arial, Helvetica, sans-serif;
         margin: 0;
         padding: 0;
-        padding-top: 270px;
-        height: 100vh;
-        overflow: hidden;
+        padding-top: 0px;
         background: conic-gradient(
-          from -32.42deg at 57% 45%,
+          from -32.42deg at 57.47% 51.91%,
           #fefefe 0deg,
           #e9edd8 360deg
         );
@@ -24,65 +24,46 @@
 
       #header {
         text-align: center;
-        line-height: 130px;
       }
-      #title {
+      #main-title {
+        padding-top: 130px;
         text-shadow: 0px 4px 8px rgba(0, 0, 0, 0.25);
         font-weight: 700;
         margin: 0;
-        font-size: 110px;
+        font-size: 60px;
       }
       #version-tag {
-        align-items: flex-end;
         font-weight: bold;
         color: #d41b1b;
         margin: 0;
         padding: 0;
-        font-size: 30px;
-        padding-left: 560px;
+        font-size: 20px;
+        padding-left: 300px;
       }
       #main {
-        padding-top: 30vh;
-      }
-      #main {
+        padding-top: 200px;
         display: flex;
         flex-direction: column;
         align-items: center;
       }
       .button {
         color: white;
-        padding-top: 70px;
-        padding-bottom: 70px;
-        font-size: 55px;
-        width: 800px;
+        padding: 20px 20px;
+        font-size: 30px;
+        width: 280px;
         background-color: #3d5074;
         border-radius: 8px;
         text-align: center;
-        margin-bottom: 90px;
-        box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.25);
-        transition: all 0.1s;
+        margin-bottom: 60px;
+        box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.25);
       }
       .gate-interna {
         background-color: #fb9963;
       }
-
-      .gate-principal:active {
-        background-color: #2d3c58;
-        box-shadow: none;
-        margin-top: 5px;
-        margin-left: 5px;
-        margin-bottom: 85px;
-      }
-      .gate-interna:active {
-        background-color: #d57643;
-        box-shadow: none;
-        margin-top: 5px;
-        margin-left: 5px;
-        margin-bottom: 85px;
-      }
       #authors {
-        line-height: 50px;
-        font-size: 30px;
+        color: gray;
+        line-height: 20px;
+        font-size: 15px;
         font-style: italic;
         margin-left: auto;
         margin-right: auto;
@@ -92,7 +73,7 @@
   </head>
   <body>
     <div id="header">
-      <h1 id="title">Abre Garaje</h1>
+      <h1 id="main-title">Abre Garaje</h1>
       <span id="version-tag">V 2.0</span>
     </div>
     <div id="main">
