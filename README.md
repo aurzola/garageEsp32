@@ -6,4 +6,4 @@ Fork from the work of:
 
 Improved security!
 
-@aurzola did some styling to the page 😁
+@aaurzola did some styling to the page 😁
