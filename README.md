@@ -5,3 +5,5 @@ Fork from the work of:
 <a href="https://github.com/twstokes/garage-homekit"> garage-homekit</a>
 
 Improved security!
+
+@aaurzola did some styling to the page 😁

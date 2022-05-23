@@ -23,6 +23,7 @@ bool    spiffsActive = false;
 #define PRGMACTIMEOUT 10000
 #define TEMP_PATH "/tmpmacs.txt"
 #define TESTFILE "/macs.txt"
+#define ONLYREGMACS true //local dev. true: deployment. false: development
 WebServer server(80);
 // Variable to store the HTTP request
 String header;
@@ -123,7 +124,7 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
     addMac(info.sta_connected.mac);
     blinkOk();
   }
-  if ( !macRegistered(info.sta_connected.mac) )  {
+  if ( ONLYREGMACS &&  !macRegistered(info.sta_connected.mac) )  {
     esp_wifi_deauth_sta(info.sta_connected.aid);
     Serial.println(" Client not registered-> disconnected!");
     blinkWarn();
@@ -331,26 +332,29 @@ void handle_NotFound(){
 }
 
 String SendHTML(){
-  String ptr = "<!DOCTYPE html> <html>\n";
-  ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr +="<title>Wifi Remote Control</title>\n";
-  ptr +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
-  ptr +="body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
-  ptr +=".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
-  ptr +=".button-on {background-color: #3498db;}\n";
-  ptr +=".button-on:active {background-color: #2980b9;}\n";
-  ptr +="p {font-size: 14px;color: #888;margin-bottom: 10px;}\n";
-  ptr +="</style>\n";
-  ptr +="</head>\n";
-  ptr +="<body>\n";
-  ptr +=APPHEADING;
-  ptr +="<h3>Usando mode de acceso AP</h3>\n";
-  
-  {ptr +="<a class=\"button button-on\" href=\"/gate1on\">Principal</a>\n";}
-  {ptr +="<a class=\"button button-on\" href=\"/gate2on\">Interna</a>\n";}
-  
-  ptr +="@aurzolar</body>\n";
-  ptr +="</html>\n";
+  String ptr = "<!DOCTYPE html>";
+  ptr += "<html>";
+  ptr += "<head>";
+  ptr += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">";
+  ptr += "<title>Wifi Remote Control</title>";
+  ptr += "<style>body {overflow-y: hidden;font-family: Arial, Helvetica, sans-serif;margin: 0;padding: 0;padding-top: 0px;max-height: 100vh;background: conic-gradient(from -32.42deg at 57.47% 51.91%,#fefefe 0deg, #e9edd8 360deg);}a {text-decoration: none;}#header {text-align: center;}#main-title {padding-top: 130px;text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);font-weight: 700;margin: 0;font-size: 60px;}#version-tag {font-weight: bold;color: #d41b1b;margin: 0;padding: 0;font-size: 20px;padding-left: 300px;}#main {padding-top: 150px;display: flex;flex-direction: column;align-items: center;}#authors {color: gray;line-height: 20px;font-size: 15px;font-style: italic;margin-left: auto;margin-right: auto;text-align: center;}.button {color: white;padding: 20px 20px;font-size: 30px;width: 280px;background-color: #3d5074;border-radius: 8px;text-align: center;margin-bottom: 60px;box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.25);}.gate-interna {background-color: #fb9963;}#alert-message {color: white;background-color: #A33232;height: 25px;text-align: center;padding-top: 6px;box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.25);}</style>";
+  ptr += "</head>";
+  ptr += "<body>";
+  ptr += "<div id=\"header\">";
+  ptr += "<div id=\"alert-message\">Cuidado al cerrar</div>";
+  ptr += "<h1 id=\"main-title\">Abre Garaje</h1>";
+  ptr += "<span id=\"version-tag\">V 2.0</span>";
+  ptr += "</div>";
+  ptr += "<div id=\"main\">";
+  ptr += "<a class=\"button gate-principal\" href=\"/gate1on\">Principal</a>";
+  ptr += "<a class=\"button gate-interna\" href=\"/gate2on\">Interna</a>";
+  ptr += "</div>";
+  ptr += "<footer id=\"authors\">";
+  ptr += "@aurzolar <br/>";
+  ptr += "@aaurzola";
+  ptr += "</footer>";
+  ptr += "</body>";
+  ptr += "</html>";
   return ptr;
 }
 
