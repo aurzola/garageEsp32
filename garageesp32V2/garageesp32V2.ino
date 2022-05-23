@@ -23,6 +23,7 @@ bool    spiffsActive = false;
 #define PRGMACTIMEOUT 10000
 #define TEMP_PATH "/tmpmacs.txt"
 #define TESTFILE "/macs.txt"
+#define ONLYREGMACS true //local dev. true: deployment. false: development
 WebServer server(80);
 // Variable to store the HTTP request
 String header;
@@ -123,7 +124,7 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
     addMac(info.sta_connected.mac);
     blinkOk();
   }
-  if ( !macRegistered(info.sta_connected.mac) )  {
+  if ( ONLYREGMACS &&  !macRegistered(info.sta_connected.mac) )  {
     esp_wifi_deauth_sta(info.sta_connected.aid);
     Serial.println(" Client not registered-> disconnected!");
     blinkWarn();
